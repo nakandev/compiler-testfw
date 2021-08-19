@@ -1,0 +1,24 @@
+#!/bin/bash
+
+if [ -z $TEST_EXECUTER ]; then
+  echo "ERROR: TEST_EXECUTER not defined." 1>&2
+  exit 1
+fi
+
+elf="$1"
+shift
+args=("$@")
+if [ $elf = `basename $elf` ]; then
+  elf="./$elf"
+fi
+# exec elf & logging cpu-time,real-time
+exec_cmd=( "$TEST_EXECUTER" "$elf" "${args[@]}" )
+scriptdir=$(cd $(dirname $0); echo $PWD)
+(\time -f "real(sec) %e\nuser(sec) %U\nsystem(sec) %S\nmemory(KB) %M" \
+  "$scriptdir/cmd_stdout" "${exec_cmd[@]}") 2> $elf.exec-time
+exitcode=$?
+
+# logging binary size
+size $elf > $elf.size
+
+exit $exitcode

@@ -1,0 +1,35 @@
+#!/bin/bash
+
+if [ -z $TEST_COMPILER ]; then
+  echo "ERROR: TEST_COMPILER not defined." 1>&2
+  exit 1
+fi
+
+args=("$@")
+
+analyze_args() { # $1..:args
+  output=
+  last_args=( $($TEST_COMPILER "-###" "$@" 2>&1 | grep "^ " | tail -n 1) )
+  for (( i=0; i<${#last_args[@]}; i++ )); do
+    if [ ${last_args[((i))]} = "-o" -o ${last_args[((i))]} = "\"-o\"" ]; then
+      output=${last_args[((i+1))]}
+      break
+    fi
+  done
+  if [ x"$output" = x"" -a ${#last_args[@]} -gt 0 ]; then
+    output=a.out
+  fi
+  if [ x"$output" = x"" ]; then
+    output=_unknown
+  fi
+}
+analyze_args "${args[@]}"
+
+# compile object/elf/etc... & logging cpu-time,real-time
+compile_cmd=("$TEST_COMPILER" "${args[@]}")
+scriptdir=$(cd $(dirname $0); echo $PWD)
+(\time -f "real(sec) %e\nuser(sec) %U\nsystem(sec) %S\nmemory(KB) %M" \
+  "$scriptdir/cmd_stdout" "${compile_cmd[@]}") 2> $output.cc-time
+exitcode=$?
+
+exit $exitcode
