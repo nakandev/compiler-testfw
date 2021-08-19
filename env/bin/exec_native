@@ -1,0 +1,16 @@
+#!/bin/sh
+
+elf="$1"
+shift
+args="$@"
+if [ $elf = `basename $elf` ]; then
+  elf="./$elf"
+fi
+# exec elf
+$elf $args
+
+# exec cpu-time & real-time
+# binary size
+# code size
+# used memory
+# 
