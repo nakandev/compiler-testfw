@@ -2,13 +2,19 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 import argparse
-import errno
+import getpass
 import os
+import platform
+import signal
 import subprocess
 from collections import OrderedDict
+from config import Config
 from contextlib import closing
 from multiprocessing import Pool
-from config import Config
+
+
+def raise_exception(signum, frame):
+    raise Exception('Catched SIGINT on PID:{}'.format(os.getpid()))
 
 
 def run_all(args, config):
@@ -17,9 +23,17 @@ def run_all(args, config):
         optiond = OrderedDict(zip(config.optkeys, option))
         runargs.append([config, optiond])
     para = config.para if hasattr(config, 'para') else 2
+    signal.signal(signal.SIGINT, raise_exception)  # set to all process
     with closing(Pool(processes=para)) as pool:
-        pool.map(func=run_single, iterable=runargs)
-        pool.terminate()
+        try:
+            pool.map(func=run_single, iterable=runargs)
+        except Exception:
+            pool.terminate()
+            pool.join()
+            os.killpg(os.getpid(), signal.SIGTERM)
+        else:
+            pool.close()
+            pool.join()
 
 
 def run_single(args):
@@ -46,6 +60,12 @@ class CompilerTestRunner:
         self.logroot = option.get('logroot')
         self.logdir = option.get('logdir')
 
+    def get_envinfo(self):
+        info = {}
+        info['Host'] = platform.uname()._asdict()
+        info['Host']['user'] = getpass.getuser()
+        return info
+
     def set_osenv(self):
         cfg = self.config
         os.environ['TEST_ROOT'] = os.getcwd()
@@ -53,31 +73,36 @@ class CompilerTestRunner:
         os.environ['TEST_COMPILER'] = cfg.compiler
         os.environ['TEST_EXECUTER'] = cfg.executer
         os.environ['TEST_CFLAGS'] = cfg.cflags[self.cflags]
-        try:
+        if not os.path.exists(os.environ['TEST_LOGDIR']):
             os.makedirs(os.environ['TEST_LOGDIR'])
-        except Exception:
-            pass
         logfile = os.path.join(os.environ['TEST_LOGDIR'], 'osenv.log')
         with open(logfile, 'w') as f:
+            print('[Host]', file=f)
+            info = self.get_envinfo()
+            for k, v in info['Host'].items():
+                print('%s: %s' % (k, v), file=f)
+            print('[Environ]', file=f)
             for key in os.environ:
-                if key[:5] == 'TEST_':
-                    print("'%s': '%s'" % (key, os.environ[key]), file=f)
+                print("%s: '%s'" % (key, os.environ[key]), file=f)
 
     def run_script(self):
         cfg = self.config
         script = cfg.runscript[self.suite]
-        if not os.path.exists(script):
-            raise OSError(errno.EEXIST, 'File not found', script)
-        proc = subprocess.Popen(
-            script,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            shell=True,
-        )
-        outs, errs = proc.communicate()
-        logdir = os.environ['TEST_LOGDIR']
-        with open('%s/%s' % (logdir, 'run_script.log'), 'w') as f:
-            f.write(str(outs))
+        try:
+            proc = subprocess.Popen(
+                script,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                shell=True,
+            )
+            outs, errs = proc.communicate()
+            logdir = os.environ['TEST_LOGDIR']
+            with open('%s/%s' % (logdir, 'run_script.log'), 'w') as f:
+                f.write(outs.decode('utf-8'))
+        except Exception as e:
+            print(e, file=os.path.join(logdir, 'run_script.err'))
+            if proc:
+                proc.terminate()
 
 
 def main():

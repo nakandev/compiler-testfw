@@ -7,12 +7,11 @@ if [ -z $TEST_EXECUTER ]; then TEST_EXECUTER=exec_native; fi
 TEST_SUITEDIR=${TEST_ROOT}/suite/llvm-testsuite
 
 # activate env
-if [ ! -f ./env/py3/bin/activate ]; then
-  echo Error: not found ./env/py3/bin/activate
-  rm -rf ./env/py3
+if [ ! -f ./suite/llvm-testsuite/env/bin/activate ]; then
+  echo Error: not found ./suite/llvm-testsuite/env/bin/activate
   exit 1
 fi
-source ./env/py3/bin/activate
+source ./suite/llvm-testsuite/env/bin/activate
 
 # exec llvm-testsuite
 if [ -d ${TEST_SUITEDIR} ]; then
