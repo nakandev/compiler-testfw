@@ -1,34 +1,11 @@
 #!/usr/bin/env python
 
+from config import Config
 import argparse
 import os
-from collections import OrderedDict
-from config import Config
-from report import LlvmTestsuiteReportBuilder
-from report import CsvWriter, XlsxWriter
-
-
-def report_all(args, config):
-    reportargs = []
-    optkeys = ('suite',)
-    for option in config.param_products(optkeys, restrictions=args):
-        optiond = OrderedDict(zip(optkeys, option))
-        reportargs.append([config, optiond])
-    for config_, optiond_ in reportargs:
-        print('Start: %s' % optiond_)
-        reporter = CompilerTestReporter(config_, optiond_)
-        reporter.report()
 
 
 class CompilerTestReporter():
-    builder_cls = {
-        'llvm': LlvmTestsuiteReportBuilder,
-    }
-    writer_cls = {
-        'csv': CsvWriter,
-        'xlsx': XlsxWriter,
-    }
-
     def __init__(self, config, option):
         self.config = config
         self.config._target = self
@@ -45,15 +22,7 @@ class CompilerTestReporter():
         self.logdir = option.get('logdir')
 
     def report(self):
-        cfg = self.config
-        logbase = os.path.join(cfg.logroot, cfg.reportdir)
-        builder = self.builder_cls[self.suite](cfg, logbase)
-        builder.build()
-        reportdir = os.path.join(cfg.reportroot, cfg.reportdir)
-        if not os.path.exists(reportdir):
-            os.makedirs(reportdir)
-        writer = self.writer_cls['xlsx'](builder.report, reportdir)
-        writer.write()
+        pass
 
 
 def main():
@@ -66,9 +35,8 @@ def main():
 
     config = Config()
     config.load(args.config)
-    report_all(args, config)
-    # reporter = CompilerTestReporter(vars(args), config)
-    # reporter.report()
+    reporter = CompilerTestReporter(vars(args), config)
+    reporter.report()
 
 
 if __name__ == '__main__':
