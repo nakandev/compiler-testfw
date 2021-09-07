@@ -10,9 +10,9 @@ from report import CsvWriter, XlsxWriter
 
 def report_all(args, config):
     reportargs = []
-    optkeys = ('suite',)
-    for option in config.param_products(optkeys, restrictions=args):
-        optiond = OrderedDict(zip(optkeys, option))
+    reportoptkeys = ('suite',)
+    for option in config.param_products(reportoptkeys, restrictions=args):
+        optiond = OrderedDict(zip(reportoptkeys, option))
         reportargs.append([config, optiond])
     for config_, optiond_ in reportargs:
         print('Start: %s' % optiond_)
@@ -46,13 +46,14 @@ class CompilerTestReporter():
 
     def report(self):
         cfg = self.config
-        logbase = os.path.join(cfg.logroot, cfg.reportdir)
+        log_suitedir, log_optdir = cfg.logdir.split('/', 1)
+        logbase = os.path.join(cfg.logroot, log_suitedir)
         builder = self.builder_cls[self.suite](cfg, logbase)
         builder.build()
         reportdir = os.path.join(cfg.reportroot, cfg.reportdir)
         if not os.path.exists(reportdir):
             os.makedirs(reportdir)
-        writer = self.writer_cls['xlsx'](builder.report, reportdir)
+        writer = self.writer_cls['xlsx'](cfg, builder.report, reportdir)
         writer.write()
 
 
@@ -67,8 +68,6 @@ def main():
     config = Config()
     config.load(args.config)
     report_all(args, config)
-    # reporter = CompilerTestReporter(vars(args), config)
-    # reporter.report()
 
 
 if __name__ == '__main__':

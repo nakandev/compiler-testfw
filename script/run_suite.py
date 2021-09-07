@@ -70,8 +70,8 @@ class CompilerTestRunner:
         cfg = self.config
         os.environ['TEST_ROOT'] = os.getcwd()
         os.environ['TEST_LOGDIR'] = os.path.join(cfg.logroot, cfg.logdir)
-        os.environ['TEST_COMPILER'] = cfg.compiler
-        os.environ['TEST_EXECUTER'] = cfg.executer
+        os.environ['TEST_COMPILER'] = cfg.compiler[self.compiler]
+        os.environ['TEST_EXECUTER'] = cfg.executer[self.executer]
         os.environ['TEST_CFLAGS'] = cfg.cflags[self.cflags]
         if not os.path.exists(os.environ['TEST_LOGDIR']):
             os.makedirs(os.environ['TEST_LOGDIR'])

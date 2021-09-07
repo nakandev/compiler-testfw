@@ -5,6 +5,11 @@ class ReportBuilder():
     def __init__(self):
         self.report = TestReport()
 
+    def build_cover(self):
+        cover = {}
+        cover['title'] = None
+        self.report.cover = cover
+
     def build_envinfo(self):
         info = {}
         info['Host'] = None
@@ -85,11 +90,23 @@ class TestCase():
     RESULT_TYPE = ('pass', 'fail', 'xpass', 'xfail', 'skip', 'ignore', '--')
 
     def __init__(self):
+        self.id = str()
         self.name = str()
         self.brief = str()
         self.detail = str()
         self.author = str()
         self.exec_user = str()
         self.exec_date = str()
+        self.exec_time = str()
         self.interim_results = {}
+        self.interim_messages = {}
         self.result = '--'
+        self.comment = str()
+
+    @property
+    def interim_results_keys(self):
+        return list(self.interim_results.keys())
+
+    @property
+    def interim_results_values(self):
+        return list(self.interim_results.values())

@@ -5,6 +5,8 @@ import getpass
 import glob
 import os
 import platform
+from collections import namedtuple
+from collections import OrderedDict
 from .report import ReportBuilder
 from .report import TestCase
 
@@ -13,18 +15,24 @@ class LlvmTestsuiteReportBuilder(ReportBuilder):
     def __init__(self, config, logbase):
         super().__init__()
         self.config = config
-        self.logbase = logbase
+        self.suite = 'llvm'
+        log_suitedir, log_optdir = self.config.logdir.split('/', 1)
+        self.logbase = os.path.join(self.config.logroot, log_suitedir)
         self._logdirs = None
 
     @property
     def logdirs(self):
         if self._logdirs is None:
-            logfiles = os.listdir(self.logbase)
-            self._logdirs = {}
-            for f in logfiles:
-                absf = os.path.join(self.logbase, f)
-                if os.path.isdir(absf):
-                    self._logdirs[f] = absf
+            config = self.config
+            logdirs = {}
+            args = {'suite': self.suite}
+            Target = namedtuple('Target', ' '.join(config.optkeys))
+            for option in config.param_products(config.optkeys, restrictions=args):
+                optiond = OrderedDict(zip(config.optkeys, option))
+                lconfig = config.copy()
+                lconfig._target = Target(**optiond)
+                logdirs[tuple(optiond.items())] = lconfig.logdir
+            self._logdirs = logdirs
         return self._logdirs
 
     def build(self):
@@ -35,10 +43,10 @@ class LlvmTestsuiteReportBuilder(ReportBuilder):
     def build_cover(self):
         cfg = self.config
         cover = {}
-        cover['title'] = cfg.title
+        cover.update(cfg.report_cover)
         cover['history'] = {
             'date': datetime.datetime.now().strftime('%Y-%m-%d'),
-            'author': cfg.author,
+            'author': cover['author'],
             'comment': 'First publish',
         }
         self.report.cover = cover
@@ -77,7 +85,8 @@ class LlvmTestsuiteReportBuilder(ReportBuilder):
         self.collect_testcase()
         testcases = self.report.testcases
         for opt, logdir in self.logdirs.items():
-            loganalyzer = LlvmTestsuiteLogAnalyzer(logdir)
+            abslogdir = os.path.join(self.config.logroot, logdir)
+            loganalyzer = LlvmTestsuiteLogAnalyzer(abslogdir)
             opt_results = loganalyzer.get_results()
             for name, result in opt_results.items():
                 if name not in testcases.keys():
@@ -94,7 +103,10 @@ class LlvmTestsuiteLogAnalyzer():
     def get_results(self):
         report_fname = 'report.simple.csv'
         pathfmt = '%s/**/%s' % (self.logdir, report_fname)
-        report_fpath = glob.glob(pathfmt, recursive=True)[0]
+        report_fpaths = glob.glob(pathfmt, recursive=True)
+        if len(report_fpaths) != 1:
+            return {}
+        report_fpath = report_fpaths[0]
         results = {}
         with open(report_fpath, 'r') as report_csv:
             reader = csv.reader(report_csv)

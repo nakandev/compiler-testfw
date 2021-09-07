@@ -1,3 +1,4 @@
+import copy
 import itertools
 
 
@@ -34,6 +35,9 @@ class Config(object):
     def todict(self):
         d = dict(self.__dict__)
         return d
+
+    def copy(self):
+        return copy.copy(self)
 
     def param_products(self, keys, restrictions=None):
         if hasattr(restrictions, '__dict__'):
