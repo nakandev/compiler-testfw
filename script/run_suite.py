@@ -62,8 +62,11 @@ class CompilerTestRunner:
 
     def get_envinfo(self):
         info = {}
-        info['Host'] = platform.uname()._asdict()
-        info['Host']['user'] = getpass.getuser()
+            info['Host'] = platform.uname()._asdict()
+        try:
+            info['Host']['user'] = getpass.getuser()
+        except Exception:
+            info['Host']['user'] = '--'
         return info
 
     def set_osenv(self):

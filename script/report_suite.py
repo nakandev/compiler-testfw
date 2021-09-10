@@ -5,7 +5,8 @@ import os
 from collections import OrderedDict
 from config import Config
 from report import LlvmTestsuiteReportBuilder
-from report import CsvWriter, XlsxWriter
+from report import CsvWriter
+from report import XlsxWriter
 
 
 def report_all(args, config):
@@ -13,6 +14,7 @@ def report_all(args, config):
     reportoptkeys = ('suite',)
     for option in config.param_products(reportoptkeys, restrictions=args):
         optiond = OrderedDict(zip(reportoptkeys, option))
+        optiond['writer'] = args.writer
         reportargs.append([config, optiond])
     for config_, optiond_ in reportargs:
         print('Start: %s' % optiond_)
@@ -43,6 +45,7 @@ class CompilerTestReporter():
         self.cc_ldflags = option.get('cc_ldflags')
         self.logroot = option.get('logroot')
         self.logdir = option.get('logdir')
+        self.writer = option.get('writer')
 
     def report(self):
         cfg = self.config
@@ -53,7 +56,7 @@ class CompilerTestReporter():
         reportdir = os.path.join(cfg.reportroot, cfg.reportdir)
         if not os.path.exists(reportdir):
             os.makedirs(reportdir)
-        writer = self.writer_cls['xlsx'](cfg, builder.report, reportdir)
+        writer = self.writer_cls[self.writer](cfg, builder.report, reportdir)
         writer.write()
 
 
@@ -61,6 +64,7 @@ def main():
     parser = argparse.ArgumentParser(description='TestSuite Reporter.')
     parser.add_argument('--config', help='Test target Config file', default=None)
     parser.add_argument('--suite', help='Test Suite', default='llvm')
+    parser.add_argument('--writer', help='Report Writer', default='xlsx')
     args = parser.parse_args()
     if args.config is None or not os.path.exists(args.config):
         raise Exception('Config file not exists: %s' % args.config)

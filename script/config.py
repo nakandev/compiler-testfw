@@ -19,6 +19,16 @@ class Config(object):
         else:
             return value
 
+    def __getattr__(self, name):
+        if name.startswith('value_'):
+            attrkey = name[len('value_'):]
+            if not hasattr(self, attrkey):
+                raise AttributeError
+            attr = getattr(self, attrkey)
+            target_attr = getattr(self._target, attrkey)
+            return attr[target_attr]
+        raise AttributeError
+
     def load(self, fpath):
         with open(fpath, 'r') as f:
             self.rawdata = f.read()
