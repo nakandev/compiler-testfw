@@ -7,7 +7,7 @@ if [ -z "$TEST_EXECUTER" ]; then TEST_EXECUTER=exec_native; fi
 TEST_SUITEDIR=${TEST_ROOT}/suite/llvm-testsuite
 
 if [ ! -z "$TEST_TESTCASE" ]; then
-  TEST_TESTCASE_ARGS="--only-test $TEST_TESTCASE"
+  TEST_TESTCASE_ARGS=(--only-test "$TEST_TESTCASE")
 fi
 
 # activate env
@@ -30,7 +30,7 @@ if [ -d ${TEST_SUITEDIR} ]; then
     --cc "${TEST_COMPILER}" \
     --cxx "${TEST_COMPILER}" \
     --cflags "${TEST_CFLAGS} -no-pie" \
-    "${TEST_TESTCASE_ARGS}"
+    "${TEST_TESTCASE_ARGS[@]}"
   popd > /dev/null
   echo llvm-testsuite end.
 fi

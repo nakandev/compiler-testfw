@@ -1,10 +1,12 @@
 import os
+import itertools
 from collections import OrderedDict
 
 # [target]
 project = 'CC-X.X'
 sdk = "./target/clang-8/build/bin"
 compiler = OrderedDict([
+    ("gcc", "/usr/bin/gcc"),
     ("clang", "/usr/bin/clang"),
 ])
 executer = OrderedDict([
@@ -13,7 +15,7 @@ executer = OrderedDict([
 
 # [suite]
 suite = OrderedDict([
-    # ("cctest", "cctest"),
+    ("cctest", "cctest"),
     ("llvm", "llvm-testsuite"),
 ])
 
@@ -33,10 +35,17 @@ cflags = OrderedDict([
 cc_cflags = ""
 cc_ldflags = ""
 
+suite_sp_var = {
+    'llvm': {
+        'makeparam': 'DISABLE_DIFFS=1'
+    }
+}
+
 # [run]
 para = 3
 optkeys = ('compiler', 'executer', 'suite', 'cflags')
-logroot = os.getcwd() + "/log"
+optvalues = list(itertools.product(*[locals()[k] for k in optkeys]))
+logroot = os.getcwd() + "/log/log_" + project
 logdir = '{target.suite}/{target.cflags}'  # must be started with {target.suite}
 runcmd_prefix = ''
 runscript = OrderedDict([
@@ -47,7 +56,7 @@ runscript = OrderedDict([
 # [report]
 refroot = os.getcwd() + "/ref"
 reffile = 'ref-sample.csv'
-reportroot = os.getcwd() + "/report"
+reportroot = os.getcwd() + "/report/report_" + project
 reportdir = '{target.suite}'  # must be started with {target.suite}
 reportfile = project + '_{target.config.value_suite}_Report'
 report_template_xlsx = os.getcwd() + '/conf/report_template.xlsx'
