@@ -19,7 +19,7 @@ def raise_exception(signum, frame):
 
 def run_all(args, config):
     runargs = []
-    for option in config.param_products(config.optkeys, restrictions=args):
+    for option in config.options(args):
         optiond = OrderedDict(zip(config.optkeys, option))
         runargs.append([config, optiond])
     para = config.para if hasattr(config, 'para') else 2
@@ -61,18 +61,24 @@ class CompilerTestRunner:
         self.logdir = option.get('logdir')
 
     def get_envinfo(self):
+        keys = ('system', 'node', 'release', 'version', 'machine', 'processor')
         info = {}
-        info['Host'] = platform.uname()._asdict()
-        info['Host']['user'] = getpass.getuser()
+        info['Host'] = OrderedDict(zip(keys, platform.uname()))
+        try:
+            info['Host']['user'] = getpass.getuser()
+        except Exception:
+            info['Host']['user'] = '--'
         return info
 
     def set_osenv(self):
         cfg = self.config
         os.environ['TEST_ROOT'] = os.getcwd()
         os.environ['TEST_LOGDIR'] = os.path.join(cfg.logroot, cfg.logdir)
-        os.environ['TEST_COMPILER'] = cfg.compiler
-        os.environ['TEST_EXECUTER'] = cfg.executer
+        os.environ['TEST_COMPILER'] = cfg.compiler[self.compiler]
+        os.environ['TEST_EXECUTER'] = cfg.executer[self.executer]
         os.environ['TEST_CFLAGS'] = cfg.cflags[self.cflags]
+        if self.testcase:
+            os.environ['TEST_TESTCASE'] = self.testcase
         if not os.path.exists(os.environ['TEST_LOGDIR']):
             os.makedirs(os.environ['TEST_LOGDIR'])
         logfile = os.path.join(os.environ['TEST_LOGDIR'], 'osenv.log')

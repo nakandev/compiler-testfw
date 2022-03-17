@@ -1,35 +1,58 @@
+import copy
 import openpyxl
 import os
+import string
+from ..builder.report import TestDiff
+from openpyxl.styles import PatternFill
 
 
 class XlsxWriter():
-    def __init__(self, report, reportdir):
+    FILL_FAIL = PatternFill(patternType='solid', fgColor='ffff00')
+
+    def __init__(self, config, report, reportdir):
+        self.config = config
         self.report = report
         self.reportdir = reportdir
         self.book = openpyxl.Workbook()
 
+    # @property
+    # def FILL_FAIL(self):
+    #     return PatternFill(patternType='solid', fgColor='ffff00')
+
     def write(self):
+        self.load_template()
         self.write_cover()
         self.write_envinfo()
         self.write_results()
-        report_path = os.path.join(self.reportdir, 'report.xlsx')
+        self.write_references()
+        if hasattr(self.config, 'reportfile'):
+            fname = self.config.reportfile + '.xlsx'
+            report_path = os.path.join(self.reportdir, fname)
+        else:
+            report_path = os.path.join(self.reportdir, 'report.xlsx')
         self.book.save(report_path)
 
-    def write_cover(self):
-        sheet = self.book.worksheets[0]
-        sheet.title = 'cover'
-        sheet.cell(2, 2).value = self.report.cover['title']
+    def load_template(self):
+        self.book = openpyxl.load_workbook(self.config.report_template_xlsx)
 
-        sheet.cell(4, 2).value = 'History:'
-        sheet.cell(5, 2).value = 'date'
-        sheet.cell(5, 3).value = 'author'
-        sheet.cell(5, 4).value = 'comment'
-        sheet.cell(6, 2).value = self.report.cover['history']['date']
-        sheet.cell(6, 3).value = self.report.cover['history']['author']
-        sheet.cell(6, 4).value = self.report.cover['history']['comment']
+    def write_cover(self):
+        if 'cover' not in self.book.sheetnames:
+            self.book.create_sheet(title='cover')
+        sheet = self.book['cover']
+        for row in sheet.rows:
+            for cell in row:
+                tstr = cell.value
+                if tstr is None:
+                    continue
+                try:
+                    cell.value = str(tstr).format(report=self.report)
+                except Exception:
+                    pass
 
     def write_envinfo(self):
-        sheet = self.book.create_sheet(title='envinfo')
+        if 'env' not in self.book.sheetnames:
+            self.book.create_sheet(title='env')
+        sheet = self.book['env']
         envinfo = self.report.envinfo
         i = 1
         for info_key, info in envinfo.items():
@@ -50,13 +73,82 @@ class XlsxWriter():
                     sheet.cell(i, 2).value = str(val)
                     i += 1
 
+    def write_references(self):
+        if 'ref' not in self.book.sheetnames:
+            self.book.create_sheet(title='ref')
+        sheet = self.book['ref']
+        tc = self.report.references[0]
+        row = 0
+        maxcol = self._expand_result_row(sheet, row, self.report, tc)
+        for row, tc in enumerate(self.report.references):
+            for col in range(maxcol):
+                copyfrom = sheet.cell(2, col + 1)
+                copyto = sheet.cell(row + 2, col + 1)
+                copyto.value = copyfrom.value
+        for i, tc in enumerate(self.report.references):
+            self._expand_result_row(sheet, i + 1, self.report, tc, maxcol=maxcol)
+
     def write_results(self):
-        sheet = self.book.create_sheet(title='results')
+        if 'result' not in self.book.sheetnames:
+            self.book.create_sheet(title='result')
+        sheet = self.book['result']
         tc = self.report.testcases[0]
-        row = ['testcase'] + list(tc.interim_results.keys())
-        for j in range(len(row)):
-            sheet.cell(1, j + 1).value = row[j]
+        row = 0
+        maxcol = self._expand_result_row(sheet, row, self.report, tc)
+        for row, tc in enumerate(self.report.testcases):
+            for col in range(maxcol):
+                copyfrom = sheet.cell(2, col + 1)
+                copyto = sheet.cell(row + 2, col + 1)
+                copyto.value = copyfrom.value
         for i, tc in enumerate(self.report.testcases):
-            row = [tc.name] + list(tc.interim_results.values())
-            for j in range(len(row)):
-                sheet.cell(i + 2, j + 1).value = row[j]
+            self._expand_result_row(sheet, i + 1, self.report, tc, maxcol=maxcol)
+
+    def _str_format(self, fmt, **kwargs):
+        formatter = string.Formatter()
+        text = ''
+        for ret_p in formatter.parse(fmt):
+            literal, field, fmtspec, conversion = ret_p
+            text += literal
+            if field is not None:
+                ret_f = formatter.get_field(field, [], kwargs)
+                obj, used_key = ret_f
+                if isinstance(obj, list):
+                    return obj
+                else:
+                    field_text = str(obj)
+                text += field_text
+        return text
+
+    def _expand_result_row(self, sheet, row, report, testcase, maxcol=None):
+        max_column = sheet.max_column if maxcol is None else maxcol
+        col = max_column - 1
+        while col >= 0:
+            cell = sheet.cell(row + 1, col + 1)
+            if cell.value:
+                text = self._str_format(cell.value, report=report, testcase=testcase)
+                if isinstance(text, list):
+                    coodinate = '{}{}:{}{}'.format(
+                        openpyxl.utils.get_column_letter(col + 2),
+                        row + 1,
+                        openpyxl.utils.get_column_letter(max_column + 1),
+                        row + 1,
+                    )
+                    sheet.move_range(coodinate, rows=0, cols=len(text) - 1)
+                    if maxcol is None:
+                        max_column += len(text)
+                    for t in range(len(text)):
+                        copyfrom = sheet.cell(row + 1, col + 1)
+                        copyto = sheet.cell(row + 1, col + t + 1)
+                        copyto.value = str(text[t])
+                        if copyfrom.has_style:
+                            copyto._style = copy.deepcopy(copyfrom._style)
+                    for t in range(len(text)):
+                        copyto = sheet.cell(row + 1, col + t + 1)
+                        if isinstance(text[t], TestDiff) and text[t].diff == 'diff':
+                            copyto.fill = self.FILL_FAIL
+                else:
+                    cell.value = str(text)
+                    if isinstance(text, TestDiff) and text.diff == 'diff':
+                        cell.fill = self.FILL_FAIL
+            col -= 1
+        return max_column
